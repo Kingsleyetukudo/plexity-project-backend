@@ -1,6 +1,18 @@
 const UserModel = require("../models/userModel");
+const Counter = require("../models/counterModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+
+// Function to Get Next Staff Number
+async function getNextStaffId(position) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: position },
+    { $inc: { sequence_value: 1 } },
+    { new: true, upsert: true } // Create the counter if it doesn't exist
+  );
+  const idNumber = counter.sequence_value.toString().padStart(3, "0");
+  return `${position}${idNumber}`;
+}
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
@@ -28,17 +40,38 @@ exports.getUserById = async (req, res) => {
 // Update an existing user
 exports.updateUser = async (req, res) => {
   try {
+    // Find the current user data
+    const user = await UserModel.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if the position is being updated
+    if (req.body.position && req.body.position !== user.position) {
+      // Generate a new staffId for the updated position
+      req.body.staffId = await getNextStaffId(req.body.position.toLowerCase());
+    }
+
+    // Update the user
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.status(200).json(updatedUser);
+
+    res.status(200).json({ message: "User updated successfully", updatedUser });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    if (error.name === "ValidationError") {
+      return res
+        .status(400)
+        .json({ message: "Invalid data", details: error.errors });
+    }
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -57,7 +90,7 @@ exports.deleteUser = async (req, res) => {
 
 // Create a new user with password hashing and email check
 exports.createUser = async (req, res) => {
-  const { email, password, ...otherDetails } = req.body;
+  const { email, password, position, ...otherDetails } = req.body;
 
   try {
     // Check if the email is already registered
@@ -69,10 +102,15 @@ exports.createUser = async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generate Staff ID
+    const staffId = await getNextStaffId(position.toLowerCase());
+
     // Create a new user with hashed password
     const user = new UserModel({
       email,
       password: hashedPassword,
+      position,
+      staffId,
       ...otherDetails,
     });
     const newUser = await user.save();
@@ -110,6 +148,30 @@ exports.loginUser = async (req, res) => {
     });
 
     res.status(200).json({ user, token, message: "Login successful" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.approveUser = async (req, res) => {
+  try {
+    // Only allow admin to approve users
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    // Update the user's approval status
+    const user = await UserModel.findByIdAndUpdate(
+      req.params.id,
+      { isApproved: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User approved successfully.", user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

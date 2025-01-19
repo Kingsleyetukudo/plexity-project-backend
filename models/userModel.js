@@ -5,14 +5,25 @@ const userSchema = new mongoose.Schema(
     firstName: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     lastName: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
+    },
+    position: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    staffId: {
+      type: String,
+      unique: true,
+    },
+    isApproved: {
+      type: Boolean,
+      default: false,
     },
     email: {
       type: String,
