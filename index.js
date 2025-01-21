@@ -7,6 +7,8 @@ const mongoose = require("mongoose");
 // all route importation here
 
 const user = require("./routes/userRoute");
+const appraisal = require("./routes/appraisalRoute");
+const appraised = require("./routes/staffAppraisalRoute");
 
 // require("dotenv").config();
 
@@ -19,6 +21,8 @@ dotenv.config();
 app.use(cors());
 
 app.use("/user", user);
+app.use("/appraisal", appraisal);
+app.use("/appraised", appraised);
 // app.use(express.json());
 
 // Database connection

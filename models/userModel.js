@@ -12,6 +12,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    department: {
+      type: String,
+      trim: true,
+    },
     position: {
       type: String,
       required: true,
