@@ -22,7 +22,7 @@ const staffAppraisalSchema = new mongoose.Schema({
       ],
     },
   ],
-  appraisedBY: {
+  appraisedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
@@ -30,7 +30,7 @@ const staffAppraisalSchema = new mongoose.Schema({
   comment: {
     type: String,
   },
-  imporveComment: {
+  improveComment: {
     type: String,
   },
   totalScore: Number,

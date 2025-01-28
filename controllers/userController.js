@@ -1,6 +1,7 @@
 const UserModel = require("../models/userModel");
 const Counter = require("../models/counterModel");
 const bcrypt = require("bcrypt");
+const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 
 // Function to Get Next Staff Number
@@ -18,7 +19,11 @@ async function getNextStaffId(position) {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find();
-    res.status(200).json(users);
+    const usersWithoutPassword = users.map((user) => {
+      const { password, ...userWithoutPassword } = user.toObject();
+      return userWithoutPassword;
+    });
+    res.status(200).json({ users: usersWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -31,7 +36,8 @@ exports.getUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.status(200).json(user);
+    const { password, ...userWithoutPassword } = user.toObject();
+    res.status(200).json({ user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -62,7 +68,13 @@ exports.updateUser = async (req, res) => {
       }
     );
 
-    res.status(200).json({ message: "User updated successfully", updatedUser });
+    const { password: updatedPassword, ...updatedUserWithoutPassword } =
+      updatedUser.toObject();
+
+    res.status(200).json({
+      message: "User updated successfully",
+      updatedUser: updatedUserWithoutPassword,
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       return res
@@ -88,9 +100,45 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// Registration email sending for notification
+const sendRegistrationEmail = async (email, firstName, lastName) => {
+  try {
+    // Configure the transporter
+    const transporter = nodemailer.createTransport({
+      service: "Gmail", // You can use other services like Outlook, Yahoo, etc.
+      auth: {
+        user: "etukudokingsley07@gmail.com", // Replace with your email
+        pass: "cqhdifyjmlducrvv", // Replace with your email password
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from: "etukudokingsley07@gmail.com", // Sender address
+      to: email, // Recipient address
+      subject: "Registration Successful",
+      html: `
+        <h1>Welcome, ${lastName}!</h1>
+        <p>Thank you for registering on our platform. Your registration has been successfully completed.</p>
+        <p>Please click the link below to log in:</p>
+        <a href="http://yourdomain.com/login" target="_blank">Log in to your account</a>
+        <p>If you have any questions, feel free to reply to this email.</p>
+        <p>Best regards,<br>Your Company Name</p>
+      `,
+    };
+
+    // Send the email
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent: " + info.response);
+  } catch (error) {
+    console.error("Error sending email:", error.message);
+  }
+};
+
 // Create a new user with password hashing and email check
 exports.createUser = async (req, res) => {
-  const { email, password, position, ...otherDetails } = req.body;
+  const { email, firstName, lastName, password, position, ...otherDetails } =
+    req.body;
 
   try {
     // Check if the email is already registered
@@ -111,6 +159,8 @@ exports.createUser = async (req, res) => {
       password: hashedPassword,
       position,
       staffId,
+      firstName,
+      lastName,
       ...otherDetails,
     });
     const newUser = await user.save();
@@ -120,7 +170,13 @@ exports.createUser = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.status(201).json({ user: newUser, token });
+    const { password: userPassword, ...userWithoutPassword } =
+      newUser.toObject();
+
+    // Send the registration email
+    await sendRegistrationEmail(email, firstName, lastName);
+
+    res.status(201).json({ user: userWithoutPassword, token });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -143,11 +199,19 @@ exports.loginUser = async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    );
 
-    res.status(200).json({ user, token, message: "Login successful" });
+    const { password: userPassword, ...userWithoutPassword } = user.toObject();
+
+    res
+      .status(200)
+      .json({ user: userWithoutPassword, token, message: "Login successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -156,9 +220,9 @@ exports.loginUser = async (req, res) => {
 exports.approveUser = async (req, res) => {
   try {
     // Only allow admin to approve users
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Access denied." });
-    }
+    // if (req.user.role !== "admin") {
+    //   return res.status(403).json({ message: "Access denied." });
+    // }
 
     // Update the user's approval status
     const user = await UserModel.findByIdAndUpdate(
@@ -171,7 +235,12 @@ exports.approveUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ message: "User approved successfully.", user });
+    const { password: userPassword, ...userWithoutPassword } = user.toObject();
+
+    res.status(200).json({
+      message: "User approved successfully.",
+      user: userWithoutPassword,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -10,8 +10,6 @@ const user = require("./routes/userRoute");
 const appraisal = require("./routes/appraisalRoute");
 const appraised = require("./routes/staffAppraisalRoute");
 
-// require("dotenv").config();
-
 const app = express();
 const port = process.env.PORT || 5000;
 

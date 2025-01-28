@@ -60,7 +60,7 @@ exports.getStaffAppraisal = async (req, res) => {
   try {
     const appraisal = await StaffAppraisal.findById(req.params.id)
       .populate("appraisedEmployee")
-      .populate("appraisedBY");
+      .populate("appraisedBy");
     if (!appraisal) {
       return res.status(404).json({
         status: "fail",

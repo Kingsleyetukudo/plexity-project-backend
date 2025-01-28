@@ -16,10 +16,36 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    sex: {
+      type: String,
+      trim: true,
+    },
+    phone: {
+      type: String,
+      trim: true,
+    },
+    maritalStatus: {
+      type: String,
+      trim: true,
+    },
+    Altphone: {
+      type: String,
+      trim: true,
+    },
+    DOB: {
+      type: String,
+      trim: true,
+    },
     position: {
       type: String,
       required: true,
       trim: true,
+    },
+    role: {
+      type: String,
+      required: true,
+      trim: true,
+      default: "staff",
     },
     staffId: {
       type: String,
