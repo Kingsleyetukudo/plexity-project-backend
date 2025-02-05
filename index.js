@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: [
       "https://appraisalapp.netlify.app", // Netlify frontend
-      "http://localhost:5000", // Localhost for development
+      "http://localhost:5173", // Localhost for development
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true, // Allow cookies if needed
@@ -27,10 +27,8 @@ app.use(bodyParser.json());
 const uri = process.env.ATLAS_URI;
 mongoose
   .connect(uri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000, // Timeout if no connection in 5s
-    socketTimeoutMS: 45000, // Close inactive sockets
+    socketTimeoutMS: 45000, // Timeout for socket inactivity
     maxPoolSize: 10,
   })
   .then(() => console.log("MongoDB connected successfully"))
