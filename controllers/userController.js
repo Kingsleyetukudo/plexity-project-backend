@@ -3,6 +3,7 @@ const Counter = require("../models/counterModel");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 
 // Function to Get Next Staff Number
 async function getNextStaffId(position) {
@@ -137,81 +138,131 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
 
 // Create a new user with password hashing and email check
 exports.createUser = async (req, res) => {
-  const { email, firstName, lastName, password, position, ...otherDetails } =
-    req.body;
+  const {
+    email,
+    firstName,
+    lastName,
+    password,
+    position,
+    token,
+    ...otherDetails
+  } = req.body;
 
   try {
-    // Check if the email is already registered
-    const existingUser = await UserModel.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email is already registered" });
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`
+    );
+
+    const { success, score } = response.data;
+
+    if (success && score > 0.5) {
+      // Check if the email is already registered
+      const existingUser = await UserModel.findOne({ email });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "Email is already registered" });
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Generate Staff ID
+      const staffId = await getNextStaffId(position.toLowerCase());
+
+      // Create a new user with hashed password
+      const user = new UserModel({
+        email,
+        password: hashedPassword,
+        position,
+        staffId,
+        firstName,
+        lastName,
+        token,
+        ...otherDetails,
+      });
+      const newUser = await user.save();
+
+      // Generate JWT token
+      const JWTtoken = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+
+      const { password: userPassword, ...userWithoutPassword } =
+        newUser.toObject();
+
+      // Send the registration email
+      await sendRegistrationEmail(email, firstName, lastName);
+
+      res.status(201).json({ user: userWithoutPassword, JWTtoken });
+    } else {
+      res
+        .status(400)
+        .json({ success: false, message: "reCAPTCHA verification failed." });
     }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate Staff ID
-    const staffId = await getNextStaffId(position.toLowerCase());
-
-    // Create a new user with hashed password
-    const user = new UserModel({
-      email,
-      password: hashedPassword,
-      position,
-      staffId,
-      firstName,
-      lastName,
-      ...otherDetails,
-    });
-    const newUser = await user.save();
-
-    // Generate JWT token
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    const { password: userPassword, ...userWithoutPassword } =
-      newUser.toObject();
-
-    // Send the registration email
-    await sendRegistrationEmail(email, firstName, lastName);
-
-    res.status(201).json({ user: userWithoutPassword, token });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 // Login user
 exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, reCaptchatoken } = req.body;
 
   try {
-    // Check if the user exists
-    const user = await UserModel.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    // Compare the password with the hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1h",
-      }
+    // reCAPTCHA verification
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${reCaptchatoken}`
     );
 
-    const { password: userPassword, ...userWithoutPassword } = user.toObject();
+    const { success, score } = response.data;
 
-    res
-      .status(200)
-      .json({ user: userWithoutPassword, token, message: "Login successful" });
+    if (success && score > 0.5) {
+      // Check if the user exists
+      const user = await UserModel.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ message: "Email not found!" });
+      }
+
+      // Check if the user is approved
+      if (!user.isApproved) {
+        return res.status(403).json({
+          isApproved: user.isApproved,
+          message: "Your account is pending approval by the admin.",
+        });
+      }
+
+      // Compare the password with the hashed password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect password" });
+      }
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: "1h",
+        }
+      );
+
+      const { password: userPassword, ...userWithoutPassword } =
+        user.toObject();
+
+      res.status(200).json({
+        user: userWithoutPassword,
+        token,
+        role: user.role,
+        isApproved: user.isApproved,
+        message: "Login successful",
+      });
+    } else {
+      res
+        .status(400)
+        .json({ success: false, message: "reCAPTCHA verification failed." });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

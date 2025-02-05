@@ -2,11 +2,9 @@ const UserModel = require("../models/userModel");
 
 const checkApproval = async (req, res, next) => {
   try {
-    // Get the user ID from the token (assuming you're using JWT for authentication)
-    const { email } = req.body;
+    const { email } = req.body; // Assuming the email is sent in the request body
 
-    // Find the user in the database
-    // const user = await UserModel.findOne({ email });
+    // Find the user by email
     const user = await UserModel.findOne({ email });
 
     if (!user) {
@@ -20,7 +18,7 @@ const checkApproval = async (req, res, next) => {
       });
     }
 
-    // If approved, proceed to the next middleware or route
+    // If the user is approved, proceed to the next middleware or route handler
     next();
   } catch (error) {
     res.status(500).json({ message: error.message });

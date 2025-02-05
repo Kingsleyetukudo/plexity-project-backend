@@ -83,63 +83,74 @@ exports.getStaffAppraisal = async (req, res) => {
 
 // Create a new staff appraisal
 exports.createStaffAppraisal = async (req, res) => {
-  const { appraisal, ...otherAppraisalsData } = req.body;
+  const { appraisal, appraisedBy, appraisedEmployee, ...otherAppraisalsData } =
+    req.body;
 
   let totalScore = 0;
   let validRatingCount = 0;
   let totalQuestions = 0;
 
-  // Check if appraisal is an array
-  if (appraisal && Array.isArray(appraisal)) {
-    appraisal.forEach((item) => {
-      // Check if the item has 'questions' and it's an array
-      if (item.questions && Array.isArray(item.questions)) {
-        totalQuestions += item.questions.length; // Count the questions in this appraisal
-        item.questions.forEach((question) => {
-          const rating = question.rating;
-
-          // If rating is a valid number between 0 and 5, we process it
-          if (
-            rating &&
-            typeof rating === "number" &&
-            rating >= 0 &&
-            rating <= 5
-          ) {
-            totalScore += rating;
-            validRatingCount++; // Increment the valid rating count
-            roundedOverallRating = totalScore / totalQuestions;
-            overallRating = parseFloat(roundedOverallRating.toFixed(2));
-          } else if (rating && typeof rating === "string") {
-            // If rating is a string, check its length
-            if (rating.length > 0) {
-              console.log(
-                `Rating is a non-empty string with length: ${rating.length}`
-              );
-            } else {
-              console.warn("Empty rating string encountered.");
-            }
-          } else {
-            console.warn("Invalid rating value encountered:", rating);
-          }
-        });
-      }
-    });
-  } else {
+  if (!Array.isArray(appraisal)) {
     return res.status(400).json({
       status: "fail",
-      message:
-        "'appraisal' must be an array of items with valid 'questions' and 'rating' values.",
+      message: "'appraisal' must be an array.",
     });
   }
 
+  appraisal.forEach((item) => {
+    if (item.questions && Array.isArray(item.questions)) {
+      totalQuestions += item.questions.length;
+      item.questions.forEach((question) => {
+        const rating = question.rating;
+        if (
+          rating &&
+          typeof rating === "number" &&
+          rating >= 0 &&
+          rating <= 5
+        ) {
+          totalScore += rating;
+          validRatingCount++;
+        }
+      });
+    }
+  });
+
+  const overallRating =
+    totalQuestions > 0
+      ? parseFloat((totalScore / totalQuestions).toFixed(2))
+      : 0;
+
   try {
+    const firstDayOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1
+    );
+
+    const existingAppraisal = await StaffAppraisal.findOne({
+      appraisedBy: mongoose.Types.ObjectId.createFromHexString(appraisedBy),
+      appraisedEmployee:
+        mongoose.Types.ObjectId.createFromHexString(appraisedEmployee),
+      date: { $gte: firstDayOfMonth },
+    });
+
+    if (existingAppraisal) {
+      return res.status(400).json({
+        status: "fail",
+        message: "You have already appraised this user this month.",
+      });
+    }
+
     const newAppraisal = await StaffAppraisal.create({
       appraisal,
+      appraisedBy,
+      appraisedEmployee,
       ...otherAppraisalsData,
       totalScore,
       overallRating,
       validRatingCount,
       totalQuestions,
+      date: new Date(),
     });
 
     res.status(201).json({
@@ -151,7 +162,7 @@ exports.createStaffAppraisal = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(400).json({
+    res.status(500).json({
       status: "fail",
       message: err.message,
     });

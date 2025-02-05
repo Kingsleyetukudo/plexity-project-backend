@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 const user = require("./routes/userRoute");
 const appraisal = require("./routes/appraisalRoute");
 const appraised = require("./routes/staffAppraisalRoute");
+const comment = require("./routes/commentRoute");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ app.use(cors());
 app.use("/user", user);
 app.use("/appraisal", appraisal);
 app.use("/appraised", appraised);
+app.use("/comment", comment);
 // app.use(express.json());
 
 // Database connection
