@@ -48,7 +48,7 @@ app.use("/appraised", appraised);
 app.use("/comment", comment);
 
 // 🔹 Test Route
-app.get("/test", (req, res) => {
+app.get("/", (req, res) => {
   res.send("Hello World! Server is running.");
 });
 
