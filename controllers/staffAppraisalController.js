@@ -4,7 +4,9 @@ const StaffAppraisal = require("../models/staffAppraisalModel");
 // Get all staff appraisals
 exports.getAllStaffAppraisals = async (req, res) => {
   try {
-    const appraisals = await StaffAppraisal.find();
+    const appraisals = await StaffAppraisal.find()
+      .populate("appraisedEmployee")
+      .populate("appraisedBy");
     res.status(200).json({
       status: "success",
       results: appraisals.length,
@@ -34,7 +36,9 @@ exports.getAllAppraisalByCurrentUserId = async (req, res) => {
   try {
     const appraisals = await StaffAppraisal.find({
       appraisedEmployee: employeeId,
-    });
+    })
+      .populate("appraisedEmployee")
+      .populate("appraisedBy");
 
     if (!appraisals || appraisals.length === 0) {
       return res.status(404).json({

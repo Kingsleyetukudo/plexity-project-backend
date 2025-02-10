@@ -39,11 +39,15 @@ const user = require("./routes/userRoute");
 const appraisal = require("./routes/appraisalRoute");
 const appraised = require("./routes/staffAppraisalRoute");
 const comment = require("./routes/commentRoute");
+const department = require("./routes/departmentRoute");
+const position = require("./routes/positionRoute");
 
 app.use("/user", user);
 app.use("/appraisal", appraisal);
 app.use("/appraised", appraised);
 app.use("/comment", comment);
+app.use("/department", department);
+app.use("/position", position);
 
 // 🔹 Test Route
 app.get("/", (req, res) => {

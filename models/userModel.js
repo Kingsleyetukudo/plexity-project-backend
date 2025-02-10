@@ -41,6 +41,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    disability: {
+      type: Boolean,
+    },
+    accountDetails: {
+      type: Array,
+    },
     role: {
       type: String,
       required: true,
@@ -69,8 +75,11 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      // required: true,
     },
+    profileCompleted: { type: Boolean, default: false },
+    tempPassword: String, // Store temp password
+    tempPasswordExpiry: Date,
     createdAt: {
       type: Date,
       default: Date.now,
