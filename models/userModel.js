@@ -12,11 +12,7 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    department: {
-      type: String,
-      trim: true,
-    },
-    sex: {
+    email: {
       type: String,
       trim: true,
     },
@@ -24,15 +20,31 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    maritalStatus: {
-      type: String,
-      trim: true,
-    },
     Altphone: {
       type: String,
       trim: true,
     },
-    DOB: {
+    dob: {
+      type: String,
+      trim: true,
+    },
+    sex: {
+      type: String,
+      trim: true,
+    },
+    maritalStatus: {
+      type: String,
+      trim: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
+    stateOfOrigin: {
+      type: String,
+      trim: true,
+    },
+    department: {
       type: String,
       trim: true,
     },
@@ -41,11 +53,29 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    employmentYear: {
+      type: String,
+    },
     disability: {
       type: Boolean,
     },
+    disabilityType: {
+      type: String,
+      trim: true,
+    },
     accountDetails: {
-      type: Array,
+      bankName: {
+        type: String,
+        trim: true,
+      },
+      accountName: {
+        type: String,
+        trim: true,
+      },
+      accountNumber: {
+        type: String,
+        trim: true,
+      },
     },
     role: {
       type: String,
