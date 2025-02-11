@@ -14,7 +14,8 @@ app.use(
   cors({
     origin: [
       "https://appraisalapp.netlify.app", // Netlify frontend
-      "http://localhost:5173", // Localhost for development
+      "http://localhost:5173",
+      "https://appraisal.plexitydigital.ng", // Localhost for development
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true, // Allow cookies if needed
