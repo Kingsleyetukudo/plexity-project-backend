@@ -105,7 +105,7 @@ exports.approveUser = async (req, res) => {
 
     // Store the temp password and set expiration (24 hours)
     user.tempPassword = tempPassword;
-    user.tempPasswordExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // 24 hours from now
+    user.tempPasswordExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
 
     await user.save();
 
@@ -246,19 +246,44 @@ exports.loginUser = async (req, res) => {
         });
       }
 
-      // Compare the password with the hashed password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: "Incorrect password" });
+      // Check if the temporary password has expired
+      const isTempPasswordExpired =
+        user.tempPasswordExpiry &&
+        new Date() > new Date(user.tempPasswordExpiry);
+      if (isTempPasswordExpired) {
+        // Clear the tempPassword and expiry after it has expired
+        user.tempPassword = null;
+        user.tempPasswordExpiry = null;
+        await user.save();
+
+        return res.status(400).json({
+          message:
+            "Your temporary password has expired. Please reset your password.",
+        });
+      }
+
+      // If using a temp password, compare it to the provided password
+      if (user.tempPassword) {
+        // If the user is trying to log in with temp password, compare it
+        const isMatch = password === user.tempPassword;
+        if (!isMatch) {
+          return res
+            .status(400)
+            .json({ message: "Incorrect temporary password" });
+        }
+      } else {
+        // If no temp password exists, compare the regular hashed password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+          return res.status(400).json({ message: "Incorrect password" });
+        }
       }
 
       // Generate JWT token
       const token = jwt.sign(
         { id: user._id, role: user.role },
         process.env.JWT_SECRET,
-        {
-          expiresIn: "1h",
-        }
+        { expiresIn: "1h" }
       );
 
       const { password: userPassword, ...userWithoutPassword } =
