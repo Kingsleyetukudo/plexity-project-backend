@@ -73,11 +73,25 @@ exports.createUser = async (req, res) => {
 
       await sendEmail(
         email,
-        "Registration Successful",
+        "🎉 Welcome to Plexity Digital Services – Registration Successful!",
         `
-        <h1>Welcome, ${lastName}!</h1>
-        <p>Thank you for registering. Click below to log in:</p>
-        <a href="http://yourdomain.com/login">Log in</a>
+        <h1>Welcome to Plexity Digital Services, ${lastName}!</h1>
+
+<p>We’re excited to have you on board. Your registration was successful, and your account is now ready to use.</p>
+
+<p>To get started, click the button below to log in:</p>
+
+<p>
+  <a href="https://appraisal.plexitydigital.ng/login" 
+     style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #ffffff; background-color: #007bff; text-decoration: none; border-radius: 5px;">
+     Log in to Your Account
+  </a>
+</p>
+
+<p>If you didn’t sign up for this account, please ignore this email.</p>
+
+<p>Best regards,</p>  
+<p><strong>Plexity Digital Services Team</strong></p>
       `
       );
 
@@ -112,16 +126,30 @@ exports.approveUser = async (req, res) => {
     // Send email with the temporary password
     await sendEmail(
       user.email,
-      "Your Account Has Been Approved!",
+      "🎉 Your Account Has Been Approved – Log in Now!",
       `
       <p>Dear ${user.firstName},</p>
-      <p>Your account is now approved. Use the details below to log in:</p>
-      <ul>
-        <li><strong>Email:</strong> ${user.email}</li>
-        <li><strong>Temporary Password:</strong> ${tempPassword}</li>
-      </ul>
-      <p><a href="https://yourwebsite.com/login">Login Here</a></p>
-      <p>Please change your password after logging in.</p>
+
+<p>Congratulations! Your account has been successfully approved. You can now log in using the details below:</p>
+
+<ul>
+  <li><strong>Email:</strong> ${user.email}</li>
+  <li><strong>Temporary Password:</strong> ${tempPassword}</li>
+</ul>
+
+<p>
+  <a href="https://appraisal.plexitydigital.ng/login" 
+     style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #ffffff; background-color: #007bff; text-decoration: none; border-radius: 5px;">
+     Log in to Your Account
+  </a>
+</p>
+
+<p>For security reasons, please change your password immediately after logging in.</p>
+
+<p>If you did not request this account, please ignore this email or contact our support team.</p>
+
+<p>Best regards,</p>  
+<p><strong>Plexity Digital Services Team</strong></p>  
     `
     );
 
