@@ -22,6 +22,7 @@ const sendEmail = async (to, subject, html) => {
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
+        type: "login",
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
@@ -77,7 +78,7 @@ exports.createUser = async (req, res) => {
         `
         <h1>Welcome to Plexity Digital Services, ${lastName}!</h1>
 
-<p>We’re excited to have you on board. Your registration was successful, and your account is now ready to use.</p>
+<p>We’re excited to have you on board. Your registration was successful, an email will be send to you once your account is approved and ready for your use.</p>
 
 <p>To get started, click the button below to log in:</p>
 
@@ -251,84 +252,83 @@ exports.loginUser = async (req, res) => {
   const { email, password, reCaptchatoken } = req.body;
 
   try {
+    // Validate reCAPTCHA token before making a request
+    if (!reCaptchatoken) {
+      return res.status(400).json({ message: "reCAPTCHA token is required." });
+    }
+
     // reCAPTCHA verification
     const secretKey = process.env.RECAPTCHA_SECRET_KEY;
     const response = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${reCaptchatoken}`
+      "https://www.google.com/recaptcha/api/siteverify",
+      new URLSearchParams({
+        secret: secretKey,
+        response: reCaptchatoken,
+      })
     );
 
     const { success, score } = response.data;
 
-    if (success && score > 0.5) {
-      // Check if the user exists
-      const user = await UserModel.findOne({ email });
-      if (!user) {
-        return res.status(400).json({ message: "Email not found!" });
-      }
-
-      // Check if the user is approved
-      if (!user.isApproved) {
-        return res.status(403).json({
-          isApproved: user.isApproved,
-          message: "Your account is pending approval by the admin.",
-        });
-      }
-
-      // Check if the temporary password has expired
-      const isTempPasswordExpired =
-        user.tempPasswordExpiry &&
-        new Date() > new Date(user.tempPasswordExpiry);
-      if (isTempPasswordExpired) {
-        // Clear the tempPassword and expiry after it has expired
-        user.tempPassword = null;
-        user.tempPasswordExpiry = null;
-        await user.save();
-
-        return res.status(400).json({
-          message:
-            "Your temporary password has expired. Please reset your password.",
-        });
-      }
-
-      // If using a temp password, compare it to the provided password
-      if (user.tempPassword) {
-        // If the user is trying to log in with temp password, compare it
-        const isMatch = password === user.tempPassword;
-        if (!isMatch) {
-          return res
-            .status(400)
-            .json({ message: "Incorrect temporary password" });
-        }
-      } else {
-        // If no temp password exists, compare the regular hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          return res.status(400).json({ message: "Incorrect password" });
-        }
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
-      );
-
-      const { password: userPassword, ...userWithoutPassword } =
-        user.toObject();
-
-      res.status(200).json({
-        user: userWithoutPassword,
-        token,
-        role: user.role,
-        isApproved: user.isApproved,
-        message: "Login successful",
-      });
-    } else {
-      res
+    if (!(success && score > 0.5)) {
+      return res
         .status(400)
-        .json({ success: false, message: "reCAPTCHA verification failed." });
+        .json({ message: "reCAPTCHA verification failed." });
     }
+
+    // Find user and check if temp password has expired in one query
+    const user = await UserModel.findOne({
+      email,
+      $or: [
+        { tempPasswordExpiry: { $exists: false } }, // No temp password expiry field
+        { tempPasswordExpiry: { $gte: new Date() } }, // Not expired
+      ],
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Email not found or expired temporary password!" });
+    }
+
+    // Check if the user is approved
+    if (!user.isApproved) {
+      return res.status(403).json({
+        isApproved: user.isApproved,
+        message: "Your account is pending approval by the admin.",
+      });
+    }
+
+    // Validate password (Temporary or Hashed)
+    const isMatch = user.tempPassword
+      ? password === user.tempPassword // Compare directly for temp password
+      : await bcrypt.compare(password, user.password); // Compare hashed password
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect password" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Exclude password field from response
+    const {
+      password: userPassword,
+      tempPassword,
+      tempPasswordExpiry,
+      ...userWithoutPassword
+    } = user.toObject();
+
+    res.status(200).json({
+      user: userWithoutPassword,
+      token,
+      role: user.role,
+      isApproved: user.isApproved,
+      message: "Login successful",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
