@@ -252,7 +252,10 @@ exports.loginUser = async (req, res) => {
   const { email, password, reCaptchatoken } = req.body;
 
   try {
-    // Validate reCAPTCHA token before making a request
+    if (!password) {
+      return res.status(400).json({ message: "Password is required." });
+    }
+
     if (!reCaptchatoken) {
       return res.status(400).json({ message: "reCAPTCHA token is required." });
     }
@@ -261,28 +264,24 @@ exports.loginUser = async (req, res) => {
     const secretKey = process.env.RECAPTCHA_SECRET_KEY;
     const response = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
-      new URLSearchParams({
-        secret: secretKey,
-        response: reCaptchatoken,
-      })
+      new URLSearchParams({ secret: secretKey, response: reCaptchatoken })
     );
 
     const { success, score } = response.data;
-
     if (!(success && score > 0.5)) {
       return res
         .status(400)
         .json({ message: "reCAPTCHA verification failed." });
     }
 
-    // Find user and check if temp password has expired in one query
+    // Find user, ensuring password is selected
     const user = await UserModel.findOne({
       email,
       $or: [
-        { tempPasswordExpiry: { $exists: false } }, // No temp password expiry field
-        { tempPasswordExpiry: { $gte: new Date() } }, // Not expired
+        { tempPasswordExpiry: { $exists: false } },
+        { tempPasswordExpiry: { $gte: new Date() } },
       ],
-    });
+    }).select("+password");
 
     if (!user) {
       return res
@@ -290,7 +289,6 @@ exports.loginUser = async (req, res) => {
         .json({ message: "Email not found or expired temporary password!" });
     }
 
-    // Check if the user is approved
     if (!user.isApproved) {
       return res.status(403).json({
         isApproved: user.isApproved,
@@ -298,10 +296,13 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // Validate password (Temporary or Hashed)
-    const isMatch = user.tempPassword
-      ? password === user.tempPassword // Compare directly for temp password
-      : await bcrypt.compare(password, user.password); // Compare hashed password
+    // Validate password
+    const isMatch =
+      user.tempPassword && password === user.tempPassword
+        ? true
+        : user.password
+        ? await bcrypt.compare(password, user.password)
+        : false;
 
     if (!isMatch) {
       return res.status(400).json({ message: "Incorrect password" });
@@ -314,7 +315,7 @@ exports.loginUser = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    // Exclude password field from response
+    // Remove sensitive fields from response
     const {
       password: userPassword,
       tempPassword,
