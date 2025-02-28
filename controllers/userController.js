@@ -205,6 +205,11 @@ exports.updateUser = async (req, res) => {
       req.body.staffId = await getNextStaffId(req.body.position.toLowerCase());
     }
 
+    // Check if the password is being updated
+    if (req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 10);
+    }
+
     // Update the user
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
