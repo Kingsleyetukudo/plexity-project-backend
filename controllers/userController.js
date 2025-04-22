@@ -28,7 +28,12 @@ const sendEmail = async (to, subject, html) => {
       },
     });
 
-    const mailOptions = { from: process.env.EMAIL_USER, to, subject, html };
+    const mailOptions = {
+      from: `"Plexity Digital Services" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    };
     await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error("Error sending email:", error.message);

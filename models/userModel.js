@@ -62,6 +62,7 @@ const userSchema = new mongoose.Schema(
     tempPasswordExpiry: { type: Date, select: false },
 
     profileCompleted: { type: Boolean, default: false },
+    userProfileImage: { type: String, trim: true },
 
     createdAt: { type: Date, default: Date.now },
   },
