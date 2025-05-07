@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
+const crypto = require("crypto");
 require("dotenv").config();
 
 // Function to Get Next Staff Number
@@ -285,18 +286,13 @@ exports.loginUser = async (req, res) => {
     }
 
     // Find user, ensuring password is selected
-    const user = await UserModel.findOne({
-      email,
-      $or: [
-        { tempPasswordExpiry: { $exists: false } },
-        { tempPasswordExpiry: { $gte: new Date() } },
-      ],
-    }).select("+password");
+    // Find user, ensure password and tempPassword are selected
+    const user = await UserModel.findOne({ email }).select(
+      "+password +tempPassword +tempPasswordExpiry"
+    );
 
     if (!user) {
-      return res
-        .status(400)
-        .json({ message: "Email not found or expired temporary password!" });
+      return res.status(400).json({ message: "Invalid credentials." });
     }
 
     if (!user.isApproved) {
@@ -306,13 +302,23 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // Validate password
-    const isMatch =
-      user.tempPassword && password === user.tempPassword
-        ? true
-        : user.password
-        ? await bcrypt.compare(password, user.password)
-        : false;
+    // Check if tempPassword is valid (not expired)
+    let isMatch = false;
+    const now = new Date();
+
+    if (user.tempPassword && user.tempPasswordExpiry > now) {
+      isMatch = password === user.tempPassword;
+    } else {
+      // Fallback to normal hashed password
+      isMatch = await bcrypt.compare(password, user.password);
+
+      // Optional cleanup: remove expired temp password
+      if (user.tempPassword || user.tempPasswordExpiry) {
+        user.tempPassword = undefined;
+        user.tempPasswordExpiry = undefined;
+        await user.save();
+      }
+    }
 
     if (!isMatch) {
       return res.status(400).json({ message: "Incorrect password" });
@@ -340,6 +346,92 @@ exports.loginUser = async (req, res) => {
       isApproved: user.isApproved,
       message: "Login successful",
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  let resetToken; // <-- Move this outside so it's accessible later
+
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    resetToken = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    await user.save();
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+
+  const resetPasswordUrl = `${process.env.FRONTEND_URL_PROD}/reset-password/${resetToken}`;
+
+  const message = `You are receiving this email because you requested to reset your password. Please click on the following link to reset your password: \n\n${resetPasswordUrl}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.`;
+
+  try {
+    await sendEmail(email, "Password Reset Request", message);
+    res.status(200).json({
+      success: true,
+      data: "Email sent successfully",
+    });
+  } catch (error) {
+    // Cleanup
+    const user = await UserModel.findOne({ email });
+    if (user) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpiry = undefined;
+      await user.save({ validateBeforeSave: false });
+    }
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const resetToken = req.params.token;
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  try {
+    const user = await UserModel.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters long" });
+    }
+
+    // Hash and update the new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Clear reset token fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiry = undefined;
+
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

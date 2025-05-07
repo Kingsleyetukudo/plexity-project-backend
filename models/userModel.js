@@ -56,8 +56,10 @@ const userSchema = new mongoose.Schema(
         message: (props) => `${props.value} is not a valid email!`,
       },
     },
+    resetPasswordExpiry: { type: Date, select: false },
+    resetPasswordToken: { type: String, select: false },
 
-    password: { type: String, select: false }, // Hide password in queries
+    password: { type: String, select: false },
     tempPassword: { type: String, select: false },
     tempPasswordExpiry: { type: Date, select: false },
 

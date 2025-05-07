@@ -13,9 +13,9 @@ const port = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
-      "https://appraisalapp.netlify.app", // Netlify frontend
-      "http://localhost:5173",
-      "https://appraisal.plexitydigital.ng", // Localhost for development
+      `${process.env.FRONTEND_URL_PROD1}`,
+      `${process.env.FRONTEND_URL_PROD}`,
+      `${process.env.FRONTEND_URL}`,
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true, // Allow cookies if needed
