@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
+      "http://localhost:5173",
       "https://appraisalapp.netlify.app",
       "https://appraisal.plexitydigital.ng",
     ],
