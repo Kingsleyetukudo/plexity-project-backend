@@ -260,30 +260,30 @@ exports.deleteUser = async (req, res) => {
 
 // Login user
 exports.loginUser = async (req, res) => {
-  const { email, password, reCaptchatoken } = req.body;
+  const { email, password } = req.body;
 
   try {
     if (!password) {
       return res.status(400).json({ message: "Password is required." });
     }
 
-    if (!reCaptchatoken) {
-      return res.status(400).json({ message: "reCAPTCHA token is required." });
-    }
+    // if (!reCaptchatoken) {
+    //   return res.status(400).json({ message: "reCAPTCHA token is required." });
+    // }
 
-    // reCAPTCHA verification
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    const response = await axios.post(
-      "https://www.google.com/recaptcha/api/siteverify",
-      new URLSearchParams({ secret: secretKey, response: reCaptchatoken })
-    );
+    // // reCAPTCHA verification
+    // const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    // const response = await axios.post(
+    //   "https://www.google.com/recaptcha/api/siteverify",
+    //   new URLSearchParams({ secret: secretKey, response: reCaptchatoken })
+    // );
 
-    const { success, score } = response.data;
-    if (!(success && score > 0.5)) {
-      return res
-        .status(400)
-        .json({ message: "reCAPTCHA verification failed." });
-    }
+    // const { success, score } = response.data;
+    // if (!(success && score > 0.5)) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "reCAPTCHA verification failed." });
+    // }
 
     // Find user, ensuring password is selected
     // Find user, ensure password and tempPassword are selected
