@@ -53,35 +53,29 @@ exports.createUser = async (req, res) => {
     ...otherDetails
   } = req.body;
   try {
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    const { data } = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`
-    );
+    if (await UserModel.findOne({ email })) {
+      return res.status(400).json({ message: "Email is already registered" });
+    }
 
-    if (data.success && data.score > 0.5) {
-      if (await UserModel.findOne({ email })) {
-        return res.status(400).json({ message: "Email is already registered" });
-      }
+    // const hashedPassword = await bcrypt.hash(password, 10);
+    const staffId = await getNextStaffId(position.toLowerCase());
+    const newUser = await new UserModel({
+      email,
+      position,
+      staffId,
+      firstName,
+      lastName,
+      token,
+      ...otherDetails,
+    }).save();
+    const JWTtoken = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
 
-      // const hashedPassword = await bcrypt.hash(password, 10);
-      const staffId = await getNextStaffId(position.toLowerCase());
-      const newUser = await new UserModel({
-        email,
-        position,
-        staffId,
-        firstName,
-        lastName,
-        token,
-        ...otherDetails,
-      }).save();
-      const JWTtoken = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-        expiresIn: "1h",
-      });
-
-      await sendEmail(
-        email,
-        "🎉 Welcome to Plexity Digital Services – Registration Successful!",
-        `
+    await sendEmail(
+      email,
+      "🎉 Welcome to Plexity Digital Services – Registration Successful!",
+      `
         <h1>Welcome to Plexity Digital Services, ${lastName}!</h1>
 
 <p>We’re excited to have you on board. Your registration was successful, an email will be send to you once your account is approved and ready for your use.</p>
@@ -100,12 +94,9 @@ exports.createUser = async (req, res) => {
 <p>Best regards,</p>  
 <p><strong>Plexity Digital Services Team</strong></p>
       `
-      );
+    );
 
-      res.status(201).json({ user: newUser, JWTtoken });
-    } else {
-      res.status(400).json({ message: "reCAPTCHA verification failed." });
-    }
+    res.status(201).json({ user: newUser, JWTtoken });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
